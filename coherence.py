@@ -28,7 +28,8 @@ For any questions and clarifications, you can reach the course staff by making a
 
 _TEST_ALGOS = ["mesi"]
 
-def parse_trace_file(trace_file_path : str) -> List[List]:
+
+def parse_trace_file(trace_file_path: str) -> List[List]:
     trace_list = list()
     with open(trace_file_path) as trace_file:
         for trace in trace_file:
@@ -36,23 +37,25 @@ def parse_trace_file(trace_file_path : str) -> List[List]:
             trace_list.append(trace_array)
     return trace_list
 
-def get_loc_list(loc_list, no_state = False):
+
+def get_loc_list(loc_list, no_state=False):
     ret_list = list()
     for _, loc in loc_list.items():
         if no_state:
             ret_list.append({
-                "addr" : loc.addr, 
-                "data" : loc.data
-                })
+                "addr": loc.addr,
+                "data": loc.data
+            })
         else:
             ret_list.append({
-                "addr" : loc.addr, 
-                "data" : loc.data, 
-                "state" : loc.state.name
-                })
+                "addr": loc.addr,
+                "data": loc.data,
+                "state": loc.state.name
+            })
     return ret_list
 
-def run_tester(trace_path : str, output_path : str):
+
+def run_tester(trace_path: str, output_path: str):
     trace_list = parse_trace_file(trace_path)
     json_output = dict()
     cache_state = list()
@@ -70,12 +73,12 @@ def run_tester(trace_path : str, output_path : str):
 
     priv_cache_size = int(system_info[1])
     json_output["private_cache_size"] = priv_cache_size
-    
+
     llc_size = int(system_info[2])
     json_output["llc_size"] = llc_size
 
     coherence = MESICoherence(cpu_count, priv_cache_size, llc_size)
-    
+
     i = 1
     ld_count = 0
     correct_count = 0
@@ -104,11 +107,11 @@ def run_tester(trace_path : str, output_path : str):
             iter_state["data_expected"] = data
             if data_ret == data:
                 correct_count += 1
-        
+
         if trace[0] == "ST":
             iter_state["data_added"] = data
             coherence.store_data(data, addr, cpu_id)
-        
+
         for k in range(cpu_count):
             priv_cache_list = get_loc_list(coherence.cpu_cache[k]._data)
             if len(priv_cache_list) != 0:
@@ -116,7 +119,7 @@ def run_tester(trace_path : str, output_path : str):
             else:
                 priv_cache_state[k] = "Empty"
         iter_state["priv_cache"] = priv_cache_state
-        
+
         llc_list = get_loc_list(coherence.llc._data, True)
         iter_state["llc"] = llc_list
 
@@ -135,11 +138,12 @@ def run_tester(trace_path : str, output_path : str):
         output_file.close()
         print("Output file written to {}".format(output_path))
 
+
 def main():
-    parser = argparse.ArgumentParser(add_help = False, description=_ARG_DESC, epilog = _HELP_MSG)
-    parser.add_argument("-h", "--help", action = "help", default=argparse.SUPPRESS, help = "Tester documentation")
-    parser.add_argument("-t", "--trace", help = "Path to trace file", metavar="", required=True, nargs=1)
-    parser.add_argument("-o", "--output", help = "Output program output", metavar="", required=False, nargs=1)
+    parser = argparse.ArgumentParser(add_help=False, description=_ARG_DESC, epilog=_HELP_MSG)
+    parser.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help="Tester documentation")
+    parser.add_argument("-t", "--trace", help="Path to trace file", metavar="", required=True, nargs=1)
+    parser.add_argument("-o", "--output", help="Output program output", metavar="", required=False, nargs=1)
     args = parser.parse_args()
 
     trace_path = args.trace[0]
@@ -155,5 +159,7 @@ def main():
 
     run_tester(trace_path, output_path)
 
-if __name__=="__main__":
-    main()
+
+if __name__ == "__main__":
+    run_tester("traces/2_10.log", "output/test1.json")
+    # main()

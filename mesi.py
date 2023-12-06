@@ -1,4 +1,4 @@
-from base import State, StudentCode, MemoryLocation
+from base import State, StudentCode, MemoryLocation, Cache
 
 """
 MESI
@@ -48,9 +48,6 @@ class MESICoherence(StudentCode):
 
             self.main_memory.update_data(loc.addr, loc.data)
 
-        # Set as invalid in the private cache
-        # self.cpu_cache[cpu_id].update_addr_state(loc.addr, State.I)
-
     def load_data(self, addr: int, cpu_id: int):
         """
         Load data from the cache
@@ -98,5 +95,27 @@ class MESICoherence(StudentCode):
         # Try the private cache first
         if self.cpu_cache[cpu_id].contains_addr(addr):
             # Private cache has the address, now we check the state
-            pass
-        pass
+            loc = self.cpu_cache[cpu_id].get_loc(addr)
+            # Not shared
+            if loc.state in [State.E, State.M]:
+                self.cpu_cache[cpu_id].update_addr_data(addr, data)
+                if loc.state == State.E:
+                    loc.update_state(State.M)
+
+                    # In this case we don't need to send any messages since its not shared
+                    return
+
+            # Invalidate all others
+            cpus = [valid_cpu for valid_cpu in range(self.cpu_count) if valid_cpu != cpu_id and self.cpu_cache[valid_cpu].contains_addr(addr)]
+
+            for cpu in cpus:
+                self.cpu_cache[cpu].update_addr_data(addr, data)
+                self.cpu_cache[cpu].update_addr_state(addr, State.I)
+
+            if self.llc.contains_addr(addr): self.llc.update_addr_state(State.I)
+            return
+
+        # Nobody needs messages
+        loc = MemoryLocation(addr, data)
+        loc.update_state(State.M)
+        self.cpu_cache[cpu_id].add_loc(loc)
