@@ -49,7 +49,7 @@ class MESICoherence(StudentCode):
             self.main_memory.update_data(loc.addr, loc.data)
 
         # Set as invalid in the private cache
-        self.cpu_cache[cpu_id].update_addr_state(loc.addr, State.I)
+        # self.cpu_cache[cpu_id].update_addr_state(loc.addr, State.I)
 
     def load_data(self, addr: int, cpu_id: int):
         """
@@ -60,8 +60,35 @@ class MESICoherence(StudentCode):
         if self.cpu_cache[cpu_id].contains_addr(addr):
             # Private cache has the address, now we check the state
             loc = self.cpu_cache[cpu_id].get_loc(addr)
+            return loc.data
 
-        pass
+        # If not found in the private cache we try other caches
+        # We create a list of all cpus that have the address (if any)
+        cpus = [valid_cpu for valid_cpu in range(self.cpu_count) if valid_cpu != cpu_id
+                and self.cpu_cache[valid_cpu].contains_addr(addr)]
+
+        # We need to read data so we make sure caches are set to S state
+        for cpu in cpus:
+            loc = self.cpu_cache[cpu].get_loc(addr)
+            if loc.state in [State.E, State.M]:
+                self.cpu_cache[cpu].update_addr_state(addr, State.S)
+                loc.update_state(State.S)
+                self.cpu_cache[cpu_id].add_loc(loc)
+                return loc.data
+
+        # Nopt found in private or other caches, now we check LLC
+        if self.llc.contains_addr(addr):
+            loc = self.llc.get_loc(addr)
+            loc.update_state(State.S)
+            self.cpu_cache[cpu_id].add_loc(loc)
+            return loc.data
+
+        # No data found so far, now we go to main memory
+        # By this point we know loc is not found elsewhere so we go to E state
+        main_loc: MemoryLocation = self.main_memory.get_loc(addr)
+        main_loc.update_state(State.E)
+        self.cpu_cache[cpu_id].add_loc(main_loc)
+        return main_loc.data
 
     def store_data(self, data: int, addr: int, cpu_id: int):
         """
