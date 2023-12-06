@@ -57,7 +57,9 @@ class MESICoherence(StudentCode):
         if self.cpu_cache[cpu_id].contains_addr(addr):
             # Private cache has the address, now we check the state
             loc = self.cpu_cache[cpu_id].get_loc(addr)
-            return loc.data
+            self.cpu_cache[cpu_id]._data[loc.addr].last_used = self.cpu_cache[cpu_id]._clock
+            if loc.state is not State.I:
+                return loc.data
 
         # If not found in the private cache we try other caches
         # We create a list of all cpus that have the address (if any)
@@ -65,13 +67,15 @@ class MESICoherence(StudentCode):
                 and self.cpu_cache[valid_cpu].contains_addr(addr)]
 
         # We need to read data so we make sure caches are set to S state
+        loc = None
         for cpu in cpus:
             loc = self.cpu_cache[cpu].get_loc(addr)
             if loc.state in [State.E, State.M]:
                 self.cpu_cache[cpu].update_addr_state(addr, State.S)
                 loc.update_state(State.S)
                 self.cpu_cache[cpu_id].add_loc(loc)
-                return loc.data
+
+        if loc: return loc.data
 
         # Nopt found in private or other caches, now we check LLC
         if self.llc.contains_addr(addr):
@@ -96,26 +100,33 @@ class MESICoherence(StudentCode):
         if self.cpu_cache[cpu_id].contains_addr(addr):
             # Private cache has the address, now we check the state
             loc = self.cpu_cache[cpu_id].get_loc(addr)
+            self.cpu_cache[cpu_id]._data[loc.addr].last_used = self.cpu_cache[cpu_id]._clock
+
             # Not shared
             if loc.state in [State.E, State.M]:
                 self.cpu_cache[cpu_id].update_addr_data(addr, data)
+
                 if loc.state == State.E:
                     loc.update_state(State.M)
 
-                    # In this case we don't need to send any messages since its not shared
-                    return
+                # In this case we don't need to send any messages since its not shared
+                return
 
-            # Invalidate all others
-            cpus = [valid_cpu for valid_cpu in range(self.cpu_count) if valid_cpu != cpu_id and self.cpu_cache[valid_cpu].contains_addr(addr)]
+        # TODO: Check if others have a copy and invalidate
 
-            for cpu in cpus:
-                self.cpu_cache[cpu].update_addr_data(addr, data)
-                self.cpu_cache[cpu].update_addr_state(addr, State.I)
+        # Invalidate all others
+        cpus = [valid_cpu for valid_cpu in range(self.cpu_count) if
+                valid_cpu != cpu_id and self.cpu_cache[valid_cpu].contains_addr(addr)]
 
-            if self.llc.contains_addr(addr): self.llc.update_addr_state(State.I)
-            return
+        for cpu in cpus:
+            self.cpu_cache[cpu].update_addr_state(addr, State.I)
+            self.cpu_cache[cpu].update_addr_data(addr, data)
 
-        # Nobody needs messages
+        if self.llc.contains_addr(addr):
+            self.llc.update_addr_state(addr, State.I)
+
         loc = MemoryLocation(addr, data)
         loc.update_state(State.M)
         self.cpu_cache[cpu_id].add_loc(loc)
+        self.cpu_cache[cpu_id].update_addr_data(addr, data)
+        self.cpu_cache[cpu_id].update_addr_state(addr, State.M)

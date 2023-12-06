@@ -161,5 +161,5 @@ def main():
 
 
 if __name__ == "__main__":
-    run_tester("traces/2_10.log", "output/test1.json")
+    run_tester("traces/12_50.log", "output/test1.json")
     # main()
