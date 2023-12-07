@@ -33,16 +33,14 @@ class MESICoherence(StudentCode):
 
         if state in [State.E, State.S]:
             # Make sure that no duplicate addresses are added
-            if self.llc.contains_addr(loc.addr):
-                self.llc.update_addr_state(loc.addr, state)
-            else:
+            if not self.llc.contains_addr(loc.addr):
                 self.llc.add_loc(loc)
 
         # We need to write back to llc and main memory
-        elif state == State.M:
+        if state is State.M:
             # If address exists, simply update it
             if self.llc.contains_addr(loc.addr):
-                self.llc.update_addr_state(loc.addr, state)
+                self.llc.update_addr_data(loc.addr, loc.data)
             else:
                 self.llc.add_loc(loc)
 
@@ -64,7 +62,8 @@ class MESICoherence(StudentCode):
         # If not found in the private cache we try other caches
         # We create a list of all cpus that have the address (if any)
         cpus = [valid_cpu for valid_cpu in range(self.cpu_count) if valid_cpu != cpu_id
-                and self.cpu_cache[valid_cpu].contains_addr(addr) and self.cpu_cache[valid_cpu].get_loc(addr).state is not State.I]
+                and self.cpu_cache[valid_cpu].contains_addr(addr) and self.cpu_cache[valid_cpu].get_loc(
+            addr).state is not State.I]
 
         # We need to read data so we make sure caches are set to S state
         loc = None
@@ -75,7 +74,7 @@ class MESICoherence(StudentCode):
             if loc.state == State.M:
                 modified_loc = loc
                 if self.llc.contains_addr(loc.addr):
-                    self.llc.update_addr_state(loc.addr, State.S)
+                    self.llc.update_addr_data(loc.addr, loc.data)
                 else:
                     self.llc.add_loc(loc)
 
@@ -108,7 +107,11 @@ class MESICoherence(StudentCode):
         # By this point we know loc is not found elsewhere so we go to E state
         main_loc: MemoryLocation = self.main_memory.get_loc(addr)
         main_loc.update_state(State.E)
-        self.cpu_cache[cpu_id].add_loc(loc)
+
+        # Update LLC
+        self.llc.add_loc(main_loc)
+        self.cpu_cache[cpu_id].add_loc(main_loc)
+
         return main_loc.data
 
     def store_data(self, data: int, addr: int, cpu_id: int):
@@ -132,8 +135,6 @@ class MESICoherence(StudentCode):
                 # In this case we don't need to send any messages since its not shared
                 return
 
-        # TODO: Check if others have a copy and invalidate
-
         # Invalidate all others
         cpus = [valid_cpu for valid_cpu in range(self.cpu_count) if
                 valid_cpu != cpu_id and self.cpu_cache[valid_cpu].contains_addr(addr)]
@@ -141,11 +142,17 @@ class MESICoherence(StudentCode):
         for cpu in cpus:
             self.cpu_cache[cpu].update_addr_state(addr, State.I)
 
-        if self.llc.contains_addr(addr):
-            self.llc.update_addr_state(addr, State.I)
+        # Update LLC
+        main_loc = self.main_memory.get_loc(addr)
+
+        if not self.llc.contains_addr(addr):
+            self.llc.add_loc(main_loc)
+
+        self.llc.update_addr_data(addr, main_loc.data)
 
         loc = MemoryLocation(addr, data)
         loc.update_state(State.M)
+
         if not self.cpu_cache[cpu_id].contains_addr(addr):
             self.cpu_cache[cpu_id].add_loc(loc)
         self.cpu_cache[cpu_id].update_addr_data(addr, data)
