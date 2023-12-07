@@ -44,7 +44,7 @@ class MESICoherence(StudentCode):
             else:
                 self.llc.add_loc(loc)
 
-            self.main_memory.update_data(loc.addr, loc.data)
+        self.main_memory.update_data(loc.addr, loc.data)
 
     def load_data(self, addr: int, cpu_id: int):
         """
@@ -77,6 +77,7 @@ class MESICoherence(StudentCode):
                     self.llc.update_addr_data(loc.addr, loc.data)
                 else:
                     self.llc.add_loc(loc)
+                self.main_memory.update_data(loc.addr, loc.data)
 
             self.cpu_cache[cpu].update_addr_state(addr, State.S)
             loc.update_state(State.S)
@@ -139,21 +140,35 @@ class MESICoherence(StudentCode):
         cpus = [valid_cpu for valid_cpu in range(self.cpu_count) if
                 valid_cpu != cpu_id and self.cpu_cache[valid_cpu].contains_addr(addr)]
 
+        modified_loc = None
         for cpu in cpus:
+            loc = self.cpu_cache[cpu].get_loc(addr)
+            if loc.state == State.M:
+                modified_loc = loc
             self.cpu_cache[cpu].update_addr_state(addr, State.I)
 
-        # Update LLC
-        main_loc = self.main_memory.get_loc(addr)
+        if modified_loc:
+            # write back
+            if not self.llc.contains_addr(modified_loc.addr):
+                self.llc.add_loc(modified_loc)
+            else:
+                self.llc.update_addr_data(modified_loc.addr, modified_loc.data)
 
-        if not self.llc.contains_addr(addr):
-            self.llc.add_loc(main_loc)
+            self.main_memory.update_data(modified_loc.addr, modified_loc.data)
+        else:
+            # Update LLC
+            main_loc = self.main_memory.get_loc(addr)
 
-        self.llc.update_addr_data(addr, main_loc.data)
+            if not self.llc.contains_addr(addr):
+                self.llc.add_loc(main_loc)
+            else:
+                self.llc.update_addr_data(main_loc.addr, main_loc.data)
 
         loc = MemoryLocation(addr, data)
         loc.update_state(State.M)
 
         if not self.cpu_cache[cpu_id].contains_addr(addr):
             self.cpu_cache[cpu_id].add_loc(loc)
-        self.cpu_cache[cpu_id].update_addr_data(addr, data)
-        self.cpu_cache[cpu_id].update_addr_state(addr, State.M)
+        else:
+            self.cpu_cache[cpu_id].update_addr_data(addr, data)
+            self.cpu_cache[cpu_id].update_addr_state(addr, State.M)
