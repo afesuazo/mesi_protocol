@@ -44,7 +44,7 @@ class MESICoherence(StudentCode):
             else:
                 self.llc.add_loc(loc)
 
-        self.main_memory.update_data(loc.addr, loc.data)
+            self.main_memory.update_data(loc.addr, loc.data)
 
     def load_data(self, addr: int, cpu_id: int):
         """
