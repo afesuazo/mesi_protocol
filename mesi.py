@@ -7,9 +7,6 @@ I - E : Read the only copy
 I - S : Read a shared copy
 I - M : Write the only copy
 
-S - I : Someone wants to write 
-S - M : Write, tell others to invalidate
-
 """
 
 
