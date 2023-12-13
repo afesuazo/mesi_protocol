@@ -9,9 +9,6 @@ I - M : Write the only copy
 
 S - I : Someone wants to write 
 S - M : Write, tell others to invalidate
- 
-M - I : Someone else wants to write
-M - S : Someone else wants to read 
 
 """
 
