@@ -1,13 +1,5 @@
 from base import State, StudentCode, MemoryLocation, Cache
 
-"""
-MESI
-
-I - E : Read the only copy
-
-
-"""
-
 
 class MESICoherence(StudentCode):
     # loc is of type MemoryLocation defined in base.py
