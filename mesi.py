@@ -4,8 +4,7 @@ from base import State, StudentCode, MemoryLocation, Cache
 MESI
 
 I - E : Read the only copy
-I - S : Read a shared copy
-I - M : Write the only copy
+
 
 """
 
