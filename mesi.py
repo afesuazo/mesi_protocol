@@ -13,10 +13,6 @@ S - M : Write, tell others to invalidate
 M - I : Someone else wants to write
 M - S : Someone else wants to read 
 
-E - M : Write the only copy 
-E - S : Someone else wants to read
-E - I : Someone else wants to write
-
 """
 
 
